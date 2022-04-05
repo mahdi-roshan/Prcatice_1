@@ -1,0 +1,21 @@
+.box-container{
+    height: 100vh;
+}
+
+.card-header h5{
+    font-weight: 700;
+}
+
+.budget-con{
+    border-radius: 50% !important;
+    background: rgba(255, 255, 255, 0.5) !important;
+    min-width: 100px;
+    min-height: 100px;
+    border: solid 1px gray;
+}
+
+.list-expenses{
+    border: solid 1px #eee;
+    padding: 1rem;
+    border-radius: 5px;
+}
