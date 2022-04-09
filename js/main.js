@@ -2,7 +2,6 @@
 // class insert data to html
 class Html { // function add tr data to table
     static insertExpenses(i, name, description, amount, type, date) {
-        console.log(i)
         let colorType;
         // check for color type
         if (type == 'income') {
@@ -106,6 +105,61 @@ class Html { // function add tr data to table
             trBody.appendChild(trExpenses);
         });
     }
+
+    // function insert total cost and total income in page
+    static insertTotal(cost, income) {
+        document.getElementById('total-cost').innerHTML = "$"+cost;
+        document.getElementById('total-income').innerHTML = "$"+income;
+    }
+
+    // function create chart
+    static showChart(costData , incomeData){
+        var chart = new CanvasJS.Chart("chartContainer", {
+            animationEnabled: true,
+            exportEnabled: true,
+            title:{
+                text: "Expenses Comparison of Every Month"
+            },
+            axisX: {
+                valueFormatString: "MMM"
+            },
+            axisY: {
+                suffix: " $"
+            },
+            toolTip: {
+                shared: true
+            },
+            legend: {
+                cursor: "pointer",
+                itemclick: toggleDataSeries
+            },
+            data: [{
+                type: "rangeColumn",
+                name: "Income",
+                showInLegend: true,
+                yValueFormatString: "#0.## $",
+                xValueFormatString: "MMM, YYYY",
+                dataPoints: incomeData
+                },
+                {
+                    type: "rangeColumn",
+                    name: "Cost",
+                    showInLegend: true,
+                    yValueFormatString: "#0.## $",
+                    xValueFormatString: "MMM, YYYY",
+                    dataPoints: costData
+            }]
+        });
+        chart.render();
+        function toggleDataSeries(e) {
+            if (typeof (e.dataSeries.visible) === "undefined" || e.dataSeries.visible) {
+                e.dataSeries.visible = false;
+            } else {
+                e.dataSeries.visible = true;
+            }
+            e.chart.render();
+        }
+    }
 }
 
 
@@ -128,37 +182,48 @@ let i = 0;
 
 // ------------ Eventlisteners -------------
 runEventListeners();
-function runEventListeners() { // when page load run readFromLocalstorage function to load data from localstorage
+function runEventListeners() { 
+    // when page load run readFromLocalstorage ,calculateTotalExpenses , createChart  function to load data from localstorage
     window.addEventListener('DOMContentLoaded', () => {
         readFromLocalstorage();
+        calculateTotalExpenses();
+        createChart();
     });
 
     // submit form eventlistener
     form.addEventListener('submit', (event) => { // check if income checked add as income and if cost checked add as cost
         if (document.getElementById('income').checked) { // send expenses data to Html class for add to table
-            Html.insertExpenses(i, expensesName.value, expensesDescription.value, expensesAmount.value, 'income', new Date().toLocaleDateString('fa-IR'));
+            Html.insertExpenses(i, expensesName.value, expensesDescription.value, expensesAmount.value, 'income', new Date().toLocaleString('en-GB',{ year: 'numeric', month: '2-digit', day: '2-digit' }));
             // create list of expenses data for save to localstorage
             listOfItems.push({
                 name: expensesName.value,
-                amount: expensesAmount.value,
+                amount: parseInt(expensesAmount.value),
                 description: expensesDescription.value,
                 type: 'income',
-                date: new Date().toLocaleDateString('fa-IR')
+                date: new Date().toLocaleString('en-GB',{ year: 'numeric', month: '2-digit', day: '2-digit' })
             });
             // send data to addToLocalstorage function for save in localstorage
             addToLocalstorage(listOfItems);
+            // calculate total expenses
+            calculateTotalExpenses();
+            // update chart
+            createChart();
         } else if (document.getElementById('cost').checked) { // send expenses data to Html class for add to table
-            Html.insertExpenses(i, expensesName.value, expensesDescription.value, expensesAmount.value, 'cost', new Date().toLocaleDateString('fa-IR'));
+            Html.insertExpenses(i, expensesName.value, expensesDescription.value, expensesAmount.value, 'cost', new Date().toLocaleString('en-GB',{ year: 'numeric', month: '2-digit', day: '2-digit' }));
             // create list of expenses data for save to localstorage
             listOfItems.push({
                 name: expensesName.value,
-                amount: expensesAmount.value,
+                amount: parseInt(expensesAmount.value),
                 description: expensesDescription.value,
                 type: 'cost',
-                date: new Date().toLocaleDateString('fa-IR')
+                date: new Date().toLocaleString('en-GB',{ year: 'numeric', month: '2-digit', day: '2-digit' })
             });
             // send data to addToLocalstorage function for save in localstorage
             addToLocalstorage(listOfItems);
+            // calculate total expenses
+            calculateTotalExpenses();
+            // update chart
+            createChart();
         }
         // +1 counter after add an item
         i++;
@@ -188,8 +253,7 @@ function readFromLocalstorage() { // parse data from localstorage
 }
 
 // function delete item from table
-function deleteItem(e, id) {
-    // confirm dialog if user is click ok then delete
+function deleteItem(e, id) { // confirm dialog if user is click ok then delete
     if (confirm("Are you sure?") == true) { // delete element we choice for delete
         e.target.parentElement.parentElement.remove()
         // parse data from localstorage
@@ -201,5 +265,139 @@ function deleteItem(e, id) {
         });
         // update list and save to localstorage again
         localStorage.setItem('expenses', JSON.stringify(expensesData));
+        calculateTotalExpenses();
+        createChart();
     }
+}
+
+// calculate total cost and total income from localstorage
+function calculateTotalExpenses() { // read data from localstorage
+    let expensesData = JSON.parse(localStorage.getItem("expenses"));
+    let totalIncome = 0,
+    totalCost = 0;
+    if(expensesData != null){
+        expensesData.forEach((element, index) => {
+            if (element.type == 'cost') { // calculate total cost
+                totalCost += element.amount;
+            } else { // calculate total income
+                totalIncome += element.amount;
+            }
+        });
+        Html.insertTotal(totalCost, totalIncome);
+    }
+}
+
+// calculate total cost and income for every month
+function createChart(){
+    let expensesData = JSON.parse(localStorage.getItem("expenses"));
+    console.log(expensesData)
+    // check if its not null then calculate and create chart
+    if(expensesData != null && expensesData.length != 0){
+        document.getElementById('chart-container').classList.remove("d-none");
+        let totalCostJan = 0 , totalIncomeJan = 0;
+        let totalCostFeb = 0 , totalincomeFeb = 0;
+        let totalCostMar = 0 , totalIncomeMar = 0;
+        let totalCostApr = 0 , totalIncomeApr = 0;
+        let totalCostMay = 0 , totalIncomeMay = 0;
+        let totalCostJun = 0 , totalIncomeJun = 0;
+        let totalCostJul = 0 , totalIncomeJul = 0;
+        let totalCostAug = 0 , totalIncomeAug = 0;
+        let totalCostSep = 0 , totalIncomeSep = 0;
+        let totalCostOct = 0 , totalIncomeOct = 0;
+        let totalCostNov = 0 , totalIncomeNov = 0;
+        let totalCostDec = 0 , totalIncomeDec = 0;
+    
+        expensesData.forEach((item , index)=>{
+            // calculate cost
+            if(item.type == 'cost'){
+                if(item.date.split('/')[1] == '01'){
+                    totalCostJan+=item.amount;
+                }else if(item.date.split('/')[1] == '02'){
+                    totalCostFeb+=item.amount;
+                }else if(item.date.split('/')[1] == '03'){
+                    totalCostMar+=item.amount;
+                }else if(item.date.split('/')[1] == '04'){
+                    totalCostApr+=item.amount;
+                }else if(item.date.split('/')[1] == '05'){
+                    totalCostMay+=item.amount;
+                }else if(item.date.split('/')[1] == '06'){
+                    totalCostJun+=item.amount;
+                }else if(item.date.split('/')[1] == '07'){
+                    totalCostJul+=item.amount;
+                }else if(item.date.split('/')[1] == '08'){
+                    totalCostAug+=item.amount;
+                }else if(item.date.split('/')[1] == '09'){
+                    totalCostSep+=item.amount;
+                }else if(item.date.split('/')[1] == '10'){
+                    totalCostOct+=item.amount;
+                }else if(item.date.split('/')[1] == '11'){
+                    totalCostNov+=item.amount;
+                }else if(item.date.split('/')[1] == '12'){
+                    totalCostDec+=item.amount;
+                }
+            }
+            // calculate cost
+            else{
+                if(item.date.split('/')[1] == '01'){
+                    totalIncomeJan+=item.amount;
+                }else if(item.date.split('/')[1] == '02'){
+                    totalincomeFeb+=item.amount;
+                }else if(item.date.split('/')[1] == '03'){
+                    totalIncomeMar+=item.amount;
+                }else if(item.date.split('/')[1] == '04'){
+                    totalIncomeApr+=item.amount;
+                }else if(item.date.split('/')[1] == '05'){
+                    totalIncomeMay+=item.amount;
+                }else if(item.date.split('/')[1] == '06'){
+                    totalIncomeJun+=item.amount;
+                }else if(item.date.split('/')[1] == '07'){
+                    totalIncomeJul+=item.amount;
+                }else if(item.date.split('/')[1] == '08'){
+                    totalIncomeAug+=item.amount;
+                }else if(item.date.split('/')[1] == '09'){
+                    totalIncomeSep+=item.amount;
+                }else if(item.date.split('/')[1] == '10'){
+                    totalIncomeOct+=item.amount;
+                }else if(item.date.split('/')[1] == '11'){
+                    totalIncomeNov+=item.amount;
+                }else if(item.date.split('/')[1] == '12'){
+                    totalIncomeDec+=item.amount;
+                }
+            }
+            
+            let costArray = [
+                { x: new Date(item.date.split('/')[2], 00), y: [0, totalCostJan] },
+                { x: new Date(item.date.split('/')[2], 01), y: [0, totalCostFeb] },
+                { x: new Date(item.date.split('/')[2], 02), y: [0, totalCostMar] },
+                { x: new Date(item.date.split('/')[2], 03), y: [0, totalCostApr] },
+                { x: new Date(item.date.split('/')[2], 04), y: [0, totalCostMay] },
+                { x: new Date(item.date.split('/')[2], 05), y: [0, totalCostJun] },
+                { x: new Date(item.date.split('/')[2], 06), y: [0, totalCostJul] },
+                { x: new Date(item.date.split('/')[2], 07), y: [0, totalCostAug] },
+                { x: new Date(item.date.split('/')[2], 08), y: [0, totalCostSep] },
+                { x: new Date(item.date.split('/')[2], 09), y: [0, totalCostOct] },
+                { x: new Date(item.date.split('/')[2], 10), y: [0, totalCostNov] },
+                { x: new Date(item.date.split('/')[2], 11), y: [0, totalCostDec] }
+            ];
+    
+            let incomeArray = [
+                { x: new Date(item.date.split('/')[2], 00), y: [0, totalIncomeJan] },
+                { x: new Date(item.date.split('/')[2], 01), y: [0, totalincomeFeb] },
+                { x: new Date(item.date.split('/')[2], 02), y: [0, totalIncomeMar] },
+                { x: new Date(item.date.split('/')[2], 03), y: [0, totalIncomeApr] },
+                { x: new Date(item.date.split('/')[2], 04), y: [0, totalIncomeMay] },
+                { x: new Date(item.date.split('/')[2], 05), y: [0, totalIncomeJun] },
+                { x: new Date(item.date.split('/')[2], 06), y: [0, totalIncomeJul] },
+                { x: new Date(item.date.split('/')[2], 07), y: [0, totalIncomeAug] },
+                { x: new Date(item.date.split('/')[2], 08), y: [0, totalIncomeSep] },
+                { x: new Date(item.date.split('/')[2], 09), y: [0, totalIncomeOct] },
+                { x: new Date(item.date.split('/')[2], 10), y: [0, totalIncomeNov] },
+                { x: new Date(item.date.split('/')[2], 11), y: [0, totalIncomeDec] }
+            ];
+    
+            // run showchart to create chart
+            Html.showChart(costArray,incomeArray)
+        })
+    }
+   
 }
